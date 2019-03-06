@@ -205,7 +205,7 @@ abstract class CordovaHttp {
 
     private CharsetDecoder createCharsetDecoder(final String charsetName) {
       return Charset.forName(charsetName).newDecoder()
-        .onMalformedInput(CodingErrorAction.REPORT)
+        .onMalformedInput(CodingErrorAction.REPLACE)
         .onUnmappableCharacter(CodingErrorAction.REPORT);
     }
 
