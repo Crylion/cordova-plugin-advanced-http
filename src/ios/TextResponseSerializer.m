@@ -1,4 +1,5 @@
 #import "TextResponseSerializer.h"
+#include "iconv.h"
 
 NSString * const AFNetworkingOperationFailingURLResponseBodyKey = @"com.alamofire.serialization.response.error.body";
 NSStringEncoding const SupportedEncodings[6] = { NSUTF8StringEncoding, NSWindowsCP1252StringEncoding, NSISOLatin1StringEncoding, NSISOLatin2StringEncoding, NSASCIIStringEncoding, NSUnicodeStringEncoding };
@@ -16,6 +17,30 @@ static NSError * AFErrorWithUnderlyingError(NSError *error, NSError *underlyingE
   mutableUserInfo[NSUnderlyingErrorKey] = underlyingError;
 
   return [[NSError alloc] initWithDomain:error.domain code:error.code userInfo:mutableUserInfo];
+}
+
+static NSData * cleanUTF8(NSData *data) {
+    // this function is from
+    // https://stackoverflow.com/questions/3485190/nsstring-initwithdata-returns-null
+    //
+    //
+    iconv_t cd = iconv_open("UTF-8", "UTF-8"); // convert to UTF-8 from UTF-8
+    int one = 1;
+    iconvctl(cd, ICONV_SET_DISCARD_ILSEQ, &one); // discard invalid characters
+    size_t inbytesleft, outbytesleft;
+    inbytesleft = outbytesleft = data.length;
+    char *inbuf  = (char *)data.bytes;
+    char *outbuf = malloc(sizeof(char) * data.length);
+    char *outptr = outbuf;
+    if (iconv(cd, &inbuf, &inbytesleft, &outptr, &outbytesleft)
+        == (size_t)-1) {
+        NSLog(@"this should not happen, seriously");
+        return nil;
+    }
+    NSData *result = [NSData dataWithBytes:outbuf length:data.length - outbytesleft];
+    iconv_close(cd);
+    free(outbuf);
+    return result;
 }
 
 static BOOL AFErrorOrUnderlyingErrorHasCodeInDomain(NSError *error, NSInteger code, NSString *domain) {
@@ -47,6 +72,7 @@ static BOOL AFErrorOrUnderlyingErrorHasCodeInDomain(NSError *error, NSInteger co
   return self;
 }
 
+
 - (NSString*)decodeResponseData:(NSData*)rawResponseData withEncoding:(CFStringEncoding)cfEncoding {
   NSStringEncoding nsEncoding;
   NSString* decoded = nil;
@@ -55,9 +81,11 @@ static BOOL AFErrorOrUnderlyingErrorHasCodeInDomain(NSError *error, NSInteger co
     nsEncoding = CFStringConvertEncodingToNSStringEncoding(cfEncoding);
   }
 
+  NSData* cleanedData = cleanUTF8(rawResponseData);
+
   for (int i = 0; i < sizeof(SupportedEncodings) / sizeof(NSStringEncoding) && !decoded; ++i) {
     if (cfEncoding == kCFStringEncodingInvalidId || nsEncoding == SupportedEncodings[i]) {
-      decoded = [[NSString alloc] initWithData:rawResponseData encoding:SupportedEncodings[i]];
+      decoded = [[NSString alloc] initWithData:cleanedData encoding:SupportedEncodings[i]];
     }
   }
 
