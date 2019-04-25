@@ -46,6 +46,7 @@
     <source-file src="src/ios/SDNetworkActivityIndicator/SDNetworkActivityIndicator.m"/>
     <framework src="Security.framework"/>
     <framework src="SystemConfiguration.framework"/>
+    <framework src="libiconv.2.dylib"/>
   </platform>
   <platform name="android">
     <config-file target="res/xml/config.xml" parent="/*">
