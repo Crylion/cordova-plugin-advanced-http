@@ -42,7 +42,7 @@ public class HttpBodyDecoder {
   }
 
   private static CharsetDecoder createCharsetDecoder(String charsetName) {
-    return Charset.forName(charsetName).newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+    return Charset.forName(charsetName).newDecoder().onMalformedInput(CodingErrorAction.REPLACE)
         .onUnmappableCharacter(CodingErrorAction.REPORT);
   }
 }
