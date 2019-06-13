@@ -3,17 +3,17 @@ const app = {
 
   lastResult: null,
 
-  initialize: function() {
+  initialize: function () {
     document.getElementById('nextBtn').addEventListener('click', app.onNextBtnClick);
   },
 
-  printResult: function(prefix, content) {
+  printResult: function (prefix, content) {
     const text = prefix + ': ' + JSON.stringify(content);
 
     document.getElementById('resultTextarea').value += text;
   },
 
-  reject: function(content) {
+  reject: function (content) {
     document.getElementById('statusInput').value = 'finished';
     app.printResult('result - rejected', content);
 
@@ -23,7 +23,7 @@ const app = {
     };
   },
 
-  resolve: function(content) {
+  resolve: function (content) {
     document.getElementById('statusInput').value = 'finished';
     app.printResult('result - resolved', content);
 
@@ -33,7 +33,7 @@ const app = {
     };
   },
 
-  throw: function(error) {
+  throw: function (error) {
     document.getElementById('statusInput').value = 'finished';
     app.printResult('result - throwed', error.message);
 
@@ -43,11 +43,11 @@ const app = {
     };
   },
 
-  getResult: function(cb) {
+  getResult: function (cb) {
     cb(app.lastResult);
   },
 
-  runTest: function(index) {
+  runTest: function (index) {
     const testDefinition = tests[index];
     const titleText = app.testIndex + ': ' + testDefinition.description;
     const expectedText = 'expected - ' + testDefinition.expected;
@@ -57,32 +57,68 @@ const app = {
     document.getElementById('resultTextarea').value = '';
     document.getElementById('descriptionLbl').innerText = titleText;
 
-    try {
-      testDefinition.func(app.resolve, app.reject);
-    } catch (error) {
-      app.throw(error);
-    }
-  },
+    const onSuccessFactory = function (cbChain) {
+      return function () {
+        cbChain.shift()(cbChain);
+      }
+    };
 
-  onBeforeTest: function(testIndex, cb) {
-    app.lastResult = null;
+    const onFailFactory = function (prefix) {
+      return function (errorMessage) {
+        app.reject(prefix + ': ' + errorMessage);
+      }
+    };
 
-    if (hooks && hooks.onBeforeEachTest) {
-      return hooks.onBeforeEachTest(function() {
-        const testDefinition = tests[testIndex];
+    const onThrowedHandler = function (prefix, error) {
+      app.throw(new Error(prefix + ': ' + error.message));
+    };
 
-        if (testDefinition.before) {
-          testDefinition.before(cb);
-        } else {
-          cb();
+    const execBeforeEachTest = function (cbChain) {
+      const prefix = 'in before each hook';
+
+      try {
+        if (!hooks || !hooks.onBeforeEachTest) {
+          return onSuccessFactory(cbChain)();
         }
-      });
-    } else {
-      cb();
-    }
+
+        hooks.onBeforeEachTest(
+          onSuccessFactory(cbChain),
+          onFailFactory(prefix)
+        );
+      } catch (error) {
+        onThrowedHandler(prefix, error);
+      }
+    };
+
+    const execBeforeTest = function (cbChain) {
+      const prefix = 'in before hook';
+
+      try {
+        if (!testDefinition.before) {
+          return onSuccessFactory(cbChain)();
+        }
+
+        testDefinition.before(
+          onSuccessFactory(cbChain),
+          onFailFactory(prefix)
+        );
+      } catch (error) {
+        onThrowedHandler(prefix, error);
+      }
+    };
+
+    const execTest = function () {
+      try {
+        testDefinition.func(app.resolve, app.reject);
+      } catch (error) {
+        app.throw(error);
+      }
+    };
+
+    onSuccessFactory([execBeforeEachTest, execBeforeTest, execTest])();
   },
 
-  onFinishedAllTests: function() {
+  onFinishedAllTests: function () {
     const titleText = 'No more tests';
     const expectedText = 'You have run all available tests.';
 
@@ -91,13 +127,11 @@ const app = {
     document.getElementById('descriptionLbl').innerText = titleText;
   },
 
-  onNextBtnClick: function() {
+  onNextBtnClick: function () {
     app.testIndex += 1;
 
     if (app.testIndex < tests.length) {
-      app.onBeforeTest(app.testIndex, function() {
-        app.runTest(app.testIndex);
-      });
+      app.runTest(app.testIndex);
     } else {
       app.onFinishedAllTests();
     }

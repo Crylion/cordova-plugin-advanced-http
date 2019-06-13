@@ -3,7 +3,7 @@ const https = require('https');
 const path = require('path');
 
 const SOURCE_HOST = 'httpbin.org';
-const TARGET_PATH = path.join(__dirname, '../test/app-template/www/certificates/httpbin.org.cer');
+const TARGET_PATH = path.join(__dirname, '../test/e2e-app-template/www/certificates/httpbin.org.cer');
 
 const getCert = hostname => new Promise((resolve, reject) => {
   const options = {
@@ -30,13 +30,11 @@ const getCert = hostname => new Promise((resolve, reject) => {
   req.end();
 });
 
-console.log(`Updating test certificate from ${SOURCE_HOST}`);
+console.log(`Updating server certificate from ${SOURCE_HOST}`);
 
 getCert(SOURCE_HOST)
-  .then(cert => {
-    fs.writeFileSync(TARGET_PATH, cert.raw);
-  })
+  .then(cert => fs.writeFileSync(TARGET_PATH, cert.raw))
   .catch(error => {
-    console.error(`Updating test cert failed: ${error}`);
+    console.error(`Updating server certificate failed: ${error}`);
     process.exit(1);
   });

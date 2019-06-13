@@ -1,8 +1,33 @@
 # Changelog
 
+## 2.0.10
+
+- Fixed #218: headers are used as params on browser platform
+
+## 2.0.9
+
+- Fixed #204: broken support for cordova-android  < 7.0
+
+- :warning: **Deprecation**: Deprecated "disableRedirect" in favor of "setFollowRedirect"
+
+## 2.0.8
+
+- Fixed #198: cookie header is always passed even if there is no cookie
+- Fixed #201: browser implementation is broken due to broken dependency
+- Fixed #197: iOS crashes when multiple request are done simultaneously (reverted a8e3637)
+- Fixed #189: error code mappings are not precise
+- Fixed #200: compatibility with Java 6 is broken due to string switch on Android
+
+- :warning: **Deprecation**: Deprecated "setSSLCertMode" in favor of "setServerTrustMode"
+
+## 2.0.7
+
+- Fixed #195: URLs are double-encoded on Android
+
 ## 2.0.6
 
 - Fixed #187: setSSLCertMode with "default" throws an error on Android
+- Fixed #115: HTTP connections are not kept alive on iOS (thanks MorpheusDe97)
 
 ## 2.0.5
 
