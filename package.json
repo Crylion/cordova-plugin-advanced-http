@@ -1,12 +1,14 @@
 {
   "name": "cordova-plugin-advanced-http",
-  "version": "2.0.10",
+  "version": "3.0.1",
   "description": "Cordova / Phonegap plugin for communicating with HTTP servers using SSL pinning",
   "scripts": {
     "updatecert": "node ./scripts/update-e2e-server-cert.js && node ./scripts/update-e2e-client-cert.js",
     "buildbrowser": "./scripts/build-test-app.sh --browser",
-    "testandroid": "npm run updatecert && ./scripts/build-test-app.sh --android --emulator && ./scripts/test-app.sh --android --emulator",
-    "testios": "npm run updatecert && ./scripts/build-test-app.sh --ios --emulator && ./scripts/test-app.sh --ios --emulator",
+    "buildandroid": "./scripts/build-test-app.sh --android --emulator",
+    "buildios": "./scripts/build-test-app.sh --ios --emulator",
+    "testandroid": "npm run updatecert && npm run buildandroid && ./scripts/test-app.sh --android --emulator",
+    "testios": "npm run updatecert && npm run buildios && ./scripts/test-app.sh --ios --emulator",
     "testapp": "npm run testandroid && npm run testios",
     "testjs": "mocha ./test/js-specs.js",
     "test": "npm run testjs && npm run testapp",
@@ -48,7 +50,7 @@
     "pvsaikrishna",
     "cvillerm",
     "hideov",
-    "Mobisys"
+    "silkimen"
   ],
   "license": "MIT",
   "bugs": {
@@ -56,15 +58,12 @@
   },
   "homepage": "https://github.com/silkimen/cordova-plugin-advanced-http#readme",
   "devDependencies": {
-    "chai": "4.1.2",
-    "chai-as-promised": "7.1.1",
-    "colors": "1.1.2",
-    "cordova": "8.1.2",
-    "mocha": "4.0.0",
-    "mock-require": "2.0.2",
-    "mz": "2.7.0",
+    "chai": "4.2.0",
+    "colors": "1.4.0",
+    "cordova": "9.0.0",
+    "mocha": "8.0.1",
     "umd-tough-cookie": "2.4.3",
-    "wd": "1.4.1",
-    "xml2js": "0.4.19"
+    "wd": "1.12.1",
+    "xml2js": "0.4.23"
   }
 }

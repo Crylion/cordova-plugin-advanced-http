@@ -4,6 +4,10 @@ module.exports = {
     switch (Object.prototype.toString.call(object)) {
       case '[object Array]':
         return 'Array';
+      case '[object Blob]':
+        return 'Blob';
+      case '[object Uint8Array]':
+        return 'Uint8Array';
       case '[object ArrayBuffer]':
         return 'ArrayBuffer';
       case '[object Boolean]':

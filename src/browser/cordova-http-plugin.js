@@ -20,7 +20,7 @@ function serializePrimitive(key, value) {
 }
 
 function serializeArray(key, values) {
-  return values.map(function(value) {
+  return values.map(function (value) {
     return encodeURIComponent(key) + '[]=' + encodeURIComponent(value);
   }).join('&');
 }
@@ -28,13 +28,46 @@ function serializeArray(key, values) {
 function serializeParams(params) {
   if (params === null) return '';
 
-  return Object.keys(params).map(function(key) {
+  return Object.keys(params).map(function (key) {
     if (jsUtil.getTypeOf(params[key]) === 'Array') {
       return serializeArray(key, params[key]);
     }
 
     return serializePrimitive(key, params[key]);
   }).join('&');
+}
+
+function decodeB64(dataString) {
+  var binaryString = atob(dataString);
+  var bytes = new Uint8Array(binaryString.length);
+
+  for (var i = 0; i < binaryString.length; ++i) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  return bytes.buffer;
+}
+
+function processMultipartData(data) {
+  if (!data) return null;
+
+  var fd = new FormData();
+
+  for (var i = 0; i < data.buffers.length; ++i) {
+    var buffer = data.buffers[i];
+    var name = data.names[i];
+    var fileName = data.fileNames[i];
+    var type = data.types[i];
+
+    if (fileName) {
+      fd.append(name, new Blob([decodeB64(buffer)], { type: type }), fileName);
+    } else {
+      // we assume it's plain text if no filename was given
+      fd.append(name, atob(buffer));
+    }
+  }
+
+  return fd;
 }
 
 function deserializeResponseHeaders(headers) {
@@ -52,11 +85,19 @@ function deserializeResponseHeaders(headers) {
   return headerMap;
 }
 
+function getResponseData(xhr) {
+  if (xhr.responseType !== 'text' || jsUtil.getTypeOf(xhr.responseText) !== 'String') {
+    return xhr.response;
+  }
+
+  return xhr.responseText;
+}
+
 function createXhrSuccessObject(xhr) {
   return {
     url: xhr.responseURL,
     status: xhr.status,
-    data: jsUtil.getTypeOf(xhr.responseText) === 'String' ? xhr.responseText : xhr.response,
+    data: getResponseData(xhr),
     headers: deserializeResponseHeaders(xhr.getAllResponseHeaders())
   };
 }
@@ -65,7 +106,7 @@ function createXhrFailureObject(xhr) {
   var obj = {};
 
   obj.headers = xhr.getAllResponseHeaders();
-  obj.error = jsUtil.getTypeOf(xhr.responseText) === 'String' ? xhr.responseText : xhr.response;
+  obj.error = getResponseData(xhr);
   obj.error = obj.error || 'advanced-http: please check browser console for error messages';
 
   if (xhr.responseURL) obj.url = xhr.responseURL;
@@ -77,7 +118,7 @@ function createXhrFailureObject(xhr) {
 function getHeaderValue(headers, headerName) {
   let result = null;
 
-  Object.keys(headers).forEach(function(key) {
+  Object.keys(headers).forEach(function (key) {
     if (key.toLowerCase() === headerName.toLowerCase()) {
       result = headers[key];
     }
@@ -93,7 +134,7 @@ function setDefaultContentType(headers, contentType) {
 }
 
 function setHeaders(xhr, headers) {
-  Object.keys(headers).forEach(function(key) {
+  Object.keys(headers).forEach(function (key) {
     if (key.toLowerCase() === 'cookie') return;
 
     xhr.setRequestHeader(key, headers[key]);
@@ -101,7 +142,7 @@ function setHeaders(xhr, headers) {
 }
 
 function sendRequest(method, withData, opts, success, failure) {
-  var data, serializer, headers, timeout, followRedirect;
+  var data, serializer, headers, timeout, followRedirect, responseType;
   var url = opts[0];
 
   if (withData) {
@@ -110,10 +151,13 @@ function sendRequest(method, withData, opts, success, failure) {
     headers = opts[3];
     timeout = opts[4];
     followRedirect = opts[5];
+    responseType = opts[6];
   } else {
     headers = opts[1];
     timeout = opts[2];
     followRedirect = opts[3];
+    responseType = opts[4];
+
   }
 
   var processedData = null;
@@ -149,13 +193,41 @@ function sendRequest(method, withData, opts, success, failure) {
       setDefaultContentType(headers, 'application/x-www-form-urlencoded');
       processedData = serializeParams(data);
       break;
+
+    case 'multipart':
+      const contentType = getHeaderValue(headers, 'Content-Type');
+
+      // intentionally don't set a default content type
+      // it's set by the browser together with the content disposition string
+      if (contentType) {
+        headers['Content-Type'] = contentType;
+      }
+
+      processedData = processMultipartData(data);
+      break;
+
+    case 'raw':
+      setDefaultContentType(headers, 'application/octet-stream');
+      processedData = data;
+      break;
   }
 
+  // requesting text instead of JSON because it's parsed in the response handler
+  xhr.responseType = responseType === 'json' ? 'text' : responseType;
   xhr.timeout = timeout * 1000;
   setHeaders(xhr, headers);
 
-  xhr.onerror = xhr.ontimeout = function () {
+  xhr.onerror = function () {
     return failure(createXhrFailureObject(xhr));
+  };
+
+  xhr.ontimeout = function () {
+    return failure({
+      status: -4,
+      error: 'Request timed out',
+      url: url,
+      headers: {}
+    });
   };
 
   xhr.onload = function () {
@@ -192,6 +264,9 @@ var browserInterface = {
   },
   uploadFile: function (success, failure, opts) {
     return failure('advanced-http: function "uploadFile" not supported on browser platform');
+  },
+  uploadFiles: function (success, failure, opts) {
+    return failure('advanced-http: function "uploadFiles" not supported on browser platform');
   },
   downloadFile: function (success, failure, opts) {
     return failure('advanced-http: function "downloadFile" not supported on browser platform');

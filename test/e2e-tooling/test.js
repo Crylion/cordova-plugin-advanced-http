@@ -1,94 +1,122 @@
-require('./helpers/setup');
-
 const wd = require('wd');
-const apps = require('./helpers/apps');
-const caps = Object.assign({}, require('./helpers/caps'));
-const serverConfig = require('./helpers/server');
+const chai = require('chai');
+const logging = require('./logging');
+const capsConfig = require('./caps');
+const serverConfig = require('./server');
 const testDefinitions = require('../e2e-specs');
-const pkgjson = require('../../package.json');
 
-describe('Advanced HTTP', function() {
+global.should = chai.should();
+
+describe('Advanced HTTP e2e test suite', function () {
+  const isSauceLabs = !!process.env.SAUCE_USERNAME;
+  const isBrowserStack = !!process.env.BROWSERSTACK_USERNAME;
+  const isVerbose = process.argv.includes('--verbose');
   const isDevice = process.argv.includes('--device');
   const isAndroid = process.argv.includes('--android');
-  const targetInfo = { isDevice, isAndroid };
 
-  let driver = null;
+  const targetInfo = { isSauceLabs, isBrowserStack, isDevice, isAndroid };
+  const environment = isSauceLabs ? 'saucelabs' : isBrowserStack ? 'browserstack' : 'local';
+
+  let driver;
   let allPassed = true;
 
-  this.timeout(900000);
+  this.timeout(15000);
+  this.slow(4000);
 
-  const getCaps = appName => {
-    const desiredOs = isAndroid ? 'android' : 'ios';
-    const desiredCaps = caps[desiredOs + (isDevice ? 'Device' : 'Emulator')];
-    const desiredApp = apps[desiredOs + appName];
+  before(async function () {
+    // connecting to saucelabs can take some time
+    this.timeout(300000);
 
-    desiredCaps.name = pkgjson.name + ` (${desiredOs})`;
-    desiredCaps.app = desiredApp;
+    driver = await wd.promiseChainRemote(serverConfig.getServer(environment));
 
-    return desiredCaps;
+    if (isVerbose) {
+      logging.setupLogging(driver);
+    }
+
+    await driver.init(
+      capsConfig.getCaps(
+        environment,
+        isAndroid ? 'android' : 'ios',
+        isDevice ? 'device' : 'emulator'
+      )
+    );
+  });
+
+  after(async function () {
+    await driver.quit().finally(
+      () => isSauceLabs && driver.sauceJobStatus(allPassed)
+    );
+  });
+
+  const defineTestForMocha = (test, index) => {
+    it(index + ': ' + test.description, async () => {
+      await clickNext(driver);
+      await validateTestIndex(driver, index);
+      await validateTestTitle(driver, test.description);
+      await waitToBeFinished(driver, test.timeout || 10000);
+      await validateResult(driver, test.validationFunc, targetInfo);
+    });
   };
 
-  const validateTestIndex = number => driver
-    .elementById('descriptionLbl')
-    .text()
-    .then(text => parseInt(text.match(/(\d+):/)[1], 10))
-    .should.eventually.become(number, 'Test index is not matching!');
+  const onlyFlaggedTests = [];
+  const enabledTests = [];
 
-  const validateTestTitle = testTitle => driver
-    .elementById('descriptionLbl')
-    .text()
-    .then(text => text.match(/\d+:\ (.*)/)[1])
-    .should.eventually.become(testTitle, 'Test description is not matching!');
+  testDefinitions.tests.forEach(test => {
+    if (test.only) {
+      onlyFlaggedTests.push(test);
+    }
 
-  const waitToBeFinished = timeout => new Promise((resolve, reject) => {
-    const timeoutTimestamp = Date.now() + timeout;
-    const checkIfFinished = () => driver
-      .elementById('statusInput')
-      .getValue()
-      .then(value => {
-        if (value === 'finished') {
-          resolve();
-        } else if (Date.now() > timeoutTimestamp) {
-          reject('Test function timed out!');
-        } else {
-          setTimeout(checkIfFinished, 500);
-        }
-      });
-
-    checkIfFinished();
+    if (!test.disabled) {
+      enabledTests.push(test);
+    }
   });
 
-  const validateResult = testDefinition => driver
-    .safeExecute('app.lastResult')
-    .then(result => testDefinition.validationFunc(driver, result, targetInfo));
-
-  const clickNext = () => driver
-    .elementById('nextBtn')
-    .click()
-    .sleep(1000);
-
-  before(() => {
-    driver = wd.promiseChainRemote(serverConfig);
-    require('./helpers/logging').configure(driver);
-
-    return driver.init(getCaps('TestApp'));
-  });
-
-  after(() => driver
-    .quit()
-    .finally(function () {
-      if (process.env.SAUCE_USERNAME) {
-        return driver.sauceJobStatus(allPassed);
-      }
-    }));
-
-  testDefinitions.tests.forEach((definition, index) => {
-    it(index + ': ' + definition.description, function() {
-      return clickNext()
-        .then(() => validateTestIndex(index))
-        .then(() => validateTestTitle(definition.description))
-        .then(() => waitToBeFinished(definition.timeout || 10000))
-        .then(() => validateResult(definition))
-      });
-  });
+  if (onlyFlaggedTests.length) {
+    onlyFlaggedTests.forEach(defineTestForMocha);
+  } else {
+    enabledTests.forEach(defineTestForMocha);
+  }
 });
+
+async function clickNext(driver) {
+  await driver.elementById('nextBtn').click().sleep(1000);
+}
+
+async function validateTestIndex(driver, testIndex) {
+  const description = await driver.elementById('descriptionLbl').text();
+  const index = parseInt(description.match(/(\d+):/)[1], 10);
+
+  index.should.be.equal(testIndex, 'Test index is not matching!');
+}
+
+async function validateTestTitle(driver, testTitle) {
+  const description = await driver.elementById('descriptionLbl').text();
+  const title = description.match(/\d+:\ (.*)/)[1];
+
+  title.should.be.equal(testTitle, 'Test description is not matching!');
+}
+
+async function waitToBeFinished(driver, timeout) {
+  const timeoutTimestamp = Date.now() + timeout;
+
+  while (true) {
+    if (await driver.elementById('statusInput').getValue() === 'finished') {
+      return true;
+    }
+
+    if (Date.now() > timeoutTimestamp) {
+      throw new Error('Test function timed out!');
+    }
+
+    await sleep(500);
+  }
+}
+
+async function validateResult(driver, validationFunc, targetInfo) {
+  const result = await driver.safeExecute('app.lastResult');
+  validationFunc(driver, result, targetInfo);
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}

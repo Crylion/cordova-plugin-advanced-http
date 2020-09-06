@@ -1,9 +1,11 @@
 Cordova Advanced HTTP
 =====================
-[![npm version](https://badge.fury.io/js/cordova-plugin-advanced-http.svg)](https://badge.fury.io/js/cordova-plugin-advanced-http)
+[![npm version](https://img.shields.io/npm/v/cordova-plugin-advanced-http)](https://www.npmjs.com/package/cordova-plugin-advanced-http?activeTab=versions)
+[![MIT Licence](https://img.shields.io/badge/license-MIT-blue?style=flat)](https://opensource.org/licenses/mit-license.php)
 [![downloads/month](https://img.shields.io/npm/dm/cordova-plugin-advanced-http.svg)](https://www.npmjs.com/package/cordova-plugin-advanced-http)
-[![MIT Licence](https://badges.frapsoft.com/os/mit/mit.png)](https://opensource.org/licenses/mit-license.php)
-[![Build Status](https://travis-ci.org/silkimen/cordova-plugin-advanced-http.svg?branch=master)](https://travis-ci.org/silkimen/cordova-plugin-advanced-http)
+
+[![Travis Build Status](https://img.shields.io/travis/silkimen/cordova-plugin-advanced-http/master?label=Travis%20CI)](https://travis-ci.org/silkimen/cordova-plugin-advanced-http)
+[![GitHub Build Status](https://img.shields.io/github/workflow/status/silkimen/cordova-plugin-advanced-http/Cordova%20HTTP%20Plugin%20CI/master?label=GitHub%20Actions)](https://github.com/silkimen/cordova-plugin-advanced-http/actions)
 
 
 Cordova / Phonegap plugin for communicating with HTTP servers.  Supports iOS, Android and [Browser](#browserSupport).
@@ -12,9 +14,10 @@ This is a fork of [Wymsee's Cordova-HTTP plugin](https://github.com/wymsee/cordo
 
 ## Advantages over Javascript requests
 
- - Background threading - all requests are done in a background thread.
- - Handling of HTTP code 401 - read more at [Issue CB-2415](https://issues.apache.org/jira/browse/CB-2415).
- - SSL Pinning - read more at [LumberBlog](http://blog.lumberlabs.com/2012/04/why-app-developers-should-care-about.html).
+ - SSL / TLS Pinning
+ - CORS restrictions do not apply
+ - X.509 client certificate based authentication
+ - Handling of HTTP code 401 - read more at [Issue CB-2415](https://issues.apache.org/jira/browse/CB-2415)
 
 ## Updates
 
@@ -58,7 +61,7 @@ cordova.plugin.http.useBasicAuth('user', 'password');
 ```
 
 ### setHeader<a name="setHeader"></a>
-Set a header for all future requests to a specified host. Takes a hostname, a header and a value (must be a string value).
+Set a header for all future requests to a specified host. Takes a hostname, a header and a value (must be a string value or null).
 
 ```js
 cordova.plugin.http.setHeader('Hostname', 'Header', 'Value');
@@ -89,16 +92,30 @@ cordova.plugin.http.setDataSerializer('urlencoded');
 ```
 
 You can choose one of these:
-* `urlencoded`: send data as url encoded content in body (content type "application/x-www-form-urlencoded")
-* `json`: send data as JSON encoded content in body (content type "application/json")
-* `utf8`: send data as plain UTF8 encoded string in body (content type "plain/text")
+* `urlencoded`: send data as url encoded content in body
+  * default content type "application/x-www-form-urlencoded"
+  * data must be an dictionary style `Object`
+* `json`: send data as JSON encoded content in body
+  * default content type "application/json"
+  * data must be an `Array` or an dictionary style `Object`
+* `utf8`: send data as plain UTF8 encoded string in body
+  * default content type "plain/text"
+  * data must be a `String`
+* `multipart`: send FormData objects as multipart content in body
+  * default content type "multipart/form-data"
+  * data must be an `FormData` instance
+* `raw`: send data as is, without any processing
+  * default content type "application/octet-stream"
+  * data must be an `Uint8Array` or an `ArrayBuffer`
 
 This defaults to `urlencoded`. You can also override the default content type headers by specifying your own headers (see [setHeader](#setHeader)).
 
-__Caution__: `urlencoded` does not support serializing deep structures whereas `json` does.
+:warning: `urlencoded` does not support serializing deep structures whereas `json` does.
+
+:warning: `multipart` depends on several Web API standards which need to be supported in your web view. Check out https://github.com/silkimen/cordova-plugin-advanced-http/wiki/Web-APIs-required-for-Multipart-requests for more info.
 
 ### setRequestTimeout
-Set how long to wait for a request to respond, in seconds.
+Set the "read" timeout in seconds. This is the timeout interval to use when waiting for additional data.
 
 ```js
 cordova.plugin.http.setRequestTimeout(5.0);
@@ -108,7 +125,7 @@ cordova.plugin.http.setRequestTimeout(5.0);
 Configure if it should follow redirects automatically. This defaults to true.
 
 ```js
-cordova.plugin.setFollowRedirect(true);
+cordova.plugin.http.setFollowRedirect(true);
 ```
 
 ### getCookieString
@@ -170,20 +187,28 @@ cordova.plugin.http.setServerTrustMode('nocheck', function() {
 });
 ```
 
-### disableRedirect (deprecated)
-This function was deprecated in 2.0.9. Use ["setFollowRedirect"](#setFollowRedirect) instead.
+### setClientAuthMode<a name="setClientAuthMode"></a>
+Configure X.509 client certificate authentication. Takes mode and options. `mode` being one of following values:
 
-### setSSLCertMode (deprecated)
-This function was deprecated in 2.0.8. Use ["setServerTrustMode"](#setServerTrustMode) instead.
+* `none`: disable client certificate authentication
+* `systemstore` (only on Android): use client certificate installed in the Android system store; user will be presented with a list of all installed certificates
+* `buffer`: use given client certificate; you will need to provide an options object:
+  * `rawPkcs`: ArrayBuffer containing raw PKCS12 container with client certificate and private key
+  * `pkcsPassword`: password of the PKCS container
 
-### enableSSLPinning (obsolete)
-This function was removed in 2.0.0. Use ["setServerTrustMode"](#setServerTrustMode) to enable SSL pinning (mode "pinned").
+```js
+  // enable client auth using PKCS12 container given in ArrayBuffer `myPkcs12ArrayBuffer`
+  cordova.plugin.http.setClientAuthMode('buffer', {
+    rawPkcs: myPkcs12ArrayBuffer,
+    pkcsPassword: 'mySecretPassword'
+  }, success, fail);
 
-### acceptAllCerts (obsolete)
-This function was removed in 2.0.0. Use ["setServerTrustMode"](#setServerTrustMode) to disable checking certs (mode "nocheck").
+  // enable client auth using certificate in system store (only on Android)
+  cordova.plugin.http.setClientAuthMode('systemstore', {}, success, fail);
 
-### validateDomainName (obsolete)
-This function was removed in v1.6.2. Domain name validation is disabled automatically when you set server trust mode to "nocheck".
+  // disable client auth
+  cordova.plugin.http.setClientAuthMode('none', {}, success, fail);
+```
 
 ### removeCookies
 Remove all cookies associated with a given URL.
@@ -192,21 +217,28 @@ Remove all cookies associated with a given URL.
 cordova.plugin.http.removeCookies(url, callback);
 ```
 
-### sendRequest
-Execute a HTTP request.  Takes a URL and an options object. This is the internally used implementation of the following shorthand functions ([post](#post), [get](#get), [put](#put), [patch](#patch), [delete](#delete), [head](#head), [uploadFile](#uploadFile) and [downloadFile](#downloadFile)). You can use this function, if you want to override global settings for each single request.
+### sendRequest<a name="sendRequest"></a>
+Execute a HTTP request.  Takes a URL and an options object. This is the internally used implementation of the following shorthand functions ([post](#post), [get](#get), [put](#put), [patch](#patch), [delete](#delete), [head](#head), [uploadFile](#uploadFile) and [downloadFile](#downloadFile)). You can use this function, if you want to override global settings for each single request. Check the documentation of the respective shorthand function for details on what is returned on success and failure.
+
+:warning: You need to encode the base URL yourself if it contains special characters like whitespaces. You can use `encodeURI()` for this purpose.
 
 The options object contains following keys:
 
 * `method`: HTTP method to be used, defaults to `get`, needs to be one of the following values:
-  * `get`, `post`, `put`, `patch`, `head`, `delete`, `upload`, `download`
+  * `get`, `post`, `put`, `patch`, `head`, `delete`, `options`, `upload`, `download`
 * `data`: payload to be send to the server (only applicable on `post`, `put` or `patch` methods)
 * `params`: query params to be appended to the URL (only applicable on `get`, `head`, `delete`, `upload` or `download` methods)
 * `serializer`: data serializer to be used (only applicable on `post`, `put` or `patch` methods), defaults to global serializer value, see [setDataSerializer](#setDataSerializer) for supported values
+* `responseType`: expected response type, defaults to `text`, needs to be one of the following values:
+  * `text`: data is returned as decoded string, use this for all kinds of string responses (e.g. XML, HTML, plain text, etc.)
+  * `json` data is treated as JSON and returned as parsed object, returns `undefined` when response body is empty
+  * `arraybuffer`: data is returned as [ArrayBuffer instance](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer), returns `null` when response body is empty
+  * `blob`: data is returned as [Blob instance](https://developer.mozilla.org/en-US/docs/Web/API/Blob), returns `null` when response body is empty
 * `timeout`: timeout value for the request in seconds, defaults to global timeout value
 * `followRedirect`: enable or disable automatically following redirects
 * `headers`: headers object (key value pair), will be merged with global values
-* `filePath`: filePath to be used during upload and download see [uploadFile](#uploadFile) and [downloadFile](#downloadFile) for detailed information
-* `name`: name to be used during upload see [uploadFile](#uploadFile) for detailed information
+* `filePath`: file path(s) to be used during upload and download see [uploadFile](#uploadFile) and [downloadFile](#downloadFile) for detailed information
+* `name`: name(s) to be used during upload see [uploadFile](#uploadFile) for detailed information
 
 Here's a quick example:
 
@@ -231,6 +263,18 @@ cordova.plugin.http.sendRequest('https://google.com/', options, function(respons
 
 ### post<a name="post"></a>
 Execute a POST request.  Takes a URL, data, and headers.
+
+```js
+cordova.plugin.http.post('https://google.com/', {
+  test: 'testString'
+}, {
+  Authorization: 'OAuth2: token'
+}, function(response) {
+  console.log(response.status);
+}, function(response) {
+  console.error(response.error);
+});
+```
 
 #### success
 The success function receives a response object with 4 properties: status, data, url, and headers.  **status** is the HTTP response code as numeric value. **data** is the response from the server as a string. **url** is the final URL obtained after any redirects as a string. **headers** is an object with the headers. The keys of the returned object are the header names and the values are the respective header values. All header names are lowercase.
@@ -274,7 +318,7 @@ cordova.plugin.http.post('https://google.com/', {
 ```
 
 #### failure
-The error function receives a response object with 4 properties: status, error, url, and headers (url and headers being optional).  **status** is the HTTP response code as numeric value. **error** is the error response from the server as a string. **url** is the final URL obtained after any redirects as a string. **headers** is an object with the headers. The keys of the returned object are the header names and the values are the respective header values. All header names are lowercase.
+The error function receives a response object with 4 properties: status, error, url, and headers (url and headers being optional).  **status** is a HTTP response code or an internal error code. Positive values are HTTP status codes whereas negative values do represent internal error codes. **error** is the error response from the server as a string or an internal error message. **url** is the final URL obtained after any redirects as a string. **headers** is an object with the headers. The keys of the returned object are the header names and the values are the respective header values. All header names are lowercase.
 
 Here's a quick example:
 
@@ -288,6 +332,8 @@ Here's a quick example:
   }
 }
 ```
+
+:warning: An enumeration style object is exposed as `cordova.plugin.http.ErrorCode`. You can use it to check against internal error codes.
 
 ### get<a name="get"></a>
 Execute a GET request.  Takes a URL, parameters, and headers.  See the [post](#post) documentation for details on what is returned on success and failure.
@@ -315,14 +361,25 @@ Execute a DELETE request.  Takes a URL, parameters, and headers.  See the [post]
 ### head<a name="head"></a>
 Execute a HEAD request.  Takes a URL, parameters, and headers.  See the [post](#post) documentation for details on what is returned on success and failure.
 
+### options<a name="options"></a>
+Execute a OPTIONS request.  Takes a URL, parameters, and headers.  See the [post](#post) documentation for details on what is returned on success and failure.
+
 ### uploadFile<a name="uploadFile"></a>
-Uploads a file saved on the device.  Takes a URL, parameters, headers, filePath, and the name of the parameter to pass the file along as.  See the [post](#post) documentation for details on what is returned on success and failure.
+Uploads one or more file(s) saved on the device.  Takes a URL, parameters, headers, filePath(s), and the name(s) of the parameter to pass the file along as.  See the [post](#post) documentation for details on what is returned on success and failure.
 
 ```js
+// e.g. for single file
+const filePath = 'file:///somepicture.jpg';
+const name = 'picture';
+
+// e.g. for multiple files
+const filePath = ['file:///somepicture.jpg', 'file:///somedocument.doc'];
+const name = ['picture', 'document'];
+
 cordova.plugin.http.uploadFile("https://google.com/", {
     id: '12',
     message: 'test'
-}, { Authorization: 'OAuth2: token' }, 'file:///somepicture.jpg', 'picture', function(response) {
+}, { Authorization: 'OAuth2: token' }, filePath, name, function(response) {
     console.log(response.status);
 }, function(response) {
     console.error(response.error);
@@ -359,6 +416,7 @@ Following features are *not* supported:
 * Pinning SSL certificate
 * Disabling SSL certificate check
 * Disabling transparently following redirects (HTTP codes 3xx)
+* Circumventing CORS restrictions
 
 ## Libraries
 
@@ -369,6 +427,16 @@ This plugin utilizes some awesome open source libraries:
  - Cookie handling - [tough-cookie](https://github.com/salesforce/tough-cookie) (BSD-3-Clause licensed)
 
 We made a few modifications to the networking libraries.
+
+## CI Builds & E2E Testing
+
+This plugin uses amazing cloud services to maintain quality. CI Builds and E2E testing are powered by:
+
+* [GitHub Actions](https://github.com/features/actions)
+* [Travis CI](https://travis-ci.org/)
+* [BrowserStack](https://www.browserstack.com/)
+* [Sauce Labs](https://saucelabs.com/)
+* [httpbin.org](https://httpbin.org/)
 
 ## Contribute & Develop
 

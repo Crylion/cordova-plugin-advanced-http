@@ -1,5 +1,5 @@
-module.exports = function init(exec, cookieHandler, urlUtil, helpers, globalConfigs) {
-  const publicInterface = {
+module.exports = function init(exec, cookieHandler, urlUtil, helpers, globalConfigs, errorCodes, ponyfills) {
+  var publicInterface = {
     getBasicAuthHeader: getBasicAuthHeader,
     useBasicAuth: useBasicAuth,
     getHeaders: getHeaders,
@@ -14,21 +14,20 @@ module.exports = function init(exec, cookieHandler, urlUtil, helpers, globalConf
     setRequestTimeout: setRequestTimeout,
     getFollowRedirect: getFollowRedirect,
     setFollowRedirect: setFollowRedirect,
-    // @DEPRECATED
-    disableRedirect: disableRedirect,
-    // @DEPRECATED
-    setSSLCertMode: setServerTrustMode,
     setServerTrustMode: setServerTrustMode,
     setClientAuthMode: setClientAuthMode,
     sendRequest: sendRequest,
     post: post,
-    get: get,
     put: put,
     patch: patch,
+    get: get,
     delete: del,
     head: head,
+    options: options,
     uploadFile: uploadFile,
-    downloadFile: downloadFile
+    downloadFile: downloadFile,
+    ErrorCode: errorCodes,
+    ponyfills: ponyfills
   };
 
   function getBasicAuthHeader(username, password) {
@@ -59,7 +58,12 @@ module.exports = function init(exec, cookieHandler, urlUtil, helpers, globalConf
     helpers.checkForInvalidHeaderValue(value);
 
     globalConfigs.headers[host] = globalConfigs.headers[host] || {};
-    globalConfigs.headers[host][header] = value;
+
+    if (value === null) {
+      delete globalConfigs.headers[host][header];
+    } else {
+      globalConfigs.headers[host][header] = value;
+    }
   }
 
   function getDataSerializer() {
@@ -102,14 +106,6 @@ module.exports = function init(exec, cookieHandler, urlUtil, helpers, globalConf
     globalConfigs.followRedirect = helpers.checkFollowRedirectValue(follow);
   }
 
-  // @DEPRECATED
-  function disableRedirect(disable, success, failure) {
-    helpers.handleMissingCallbacks(success, failure);
-
-    setFollowRedirect(!disable);
-    success();
-  }
-
   function setServerTrustMode(mode, success, failure) {
     helpers.handleMissingCallbacks(success, failure);
 
@@ -143,31 +139,31 @@ module.exports = function init(exec, cookieHandler, urlUtil, helpers, globalConf
     url = urlUtil.appendQueryParamsString(url, urlUtil.serializeQueryParams(options.params, true));
 
     var headers = helpers.getMergedHeaders(url, options.headers, globalConfigs.headers);
-    var onSuccess = helpers.injectCookieHandler(url, success);
+
     var onFail = helpers.injectCookieHandler(url, failure);
+    var onSuccess = helpers.injectCookieHandler(url, helpers.injectRawResponseHandler(options.responseType, success, failure));
 
     switch (options.method) {
       case 'post':
       case 'put':
       case 'patch':
-        var data = helpers.getProcessedData(options.data, options.serializer);
-        return exec(onSuccess, onFail, 'CordovaHttpPlugin', options.method, [url, data, options.serializer, headers, options.timeout, options.followRedirect]);
+        return helpers.processData(options.data, options.serializer, function (data) {
+          exec(onSuccess, onFail, 'CordovaHttpPlugin', options.method, [url, data, options.serializer, headers, options.timeout, options.followRedirect, options.responseType]);
+        });
       case 'upload':
-        return exec(onSuccess, onFail, 'CordovaHttpPlugin', 'uploadFile', [url, headers, options.filePath, options.name, options.timeout, options.followRedirect]);
+        var fileOptions = helpers.checkUploadFileOptions(options.filePath, options.name);
+        return exec(onSuccess, onFail, 'CordovaHttpPlugin', 'uploadFiles', [url, headers, fileOptions.filePaths, fileOptions.names, options.timeout, options.followRedirect, options.responseType]);
       case 'download':
+        var filePath = helpers.checkDownloadFilePath(options.filePath);
         var onDownloadSuccess = helpers.injectCookieHandler(url, helpers.injectFileEntryHandler(success));
-        return exec(onDownloadSuccess, onFail, 'CordovaHttpPlugin', 'downloadFile', [url, headers, options.filePath, options.timeout, options.followRedirect]);
+        return exec(onDownloadSuccess, onFail, 'CordovaHttpPlugin', 'downloadFile', [url, headers, filePath, options.timeout, options.followRedirect]);
       default:
-        return exec(onSuccess, onFail, 'CordovaHttpPlugin', options.method, [url, headers, options.timeout, options.followRedirect]);
+        return exec(onSuccess, onFail, 'CordovaHttpPlugin', options.method, [url, headers, options.timeout, options.followRedirect, options.responseType]);
     }
   }
 
   function post(url, data, headers, success, failure) {
     return publicInterface.sendRequest(url, { method: 'post', data: data, headers: headers }, success, failure);
-  };
-
-  function get(url, params, headers, success, failure) {
-    return publicInterface.sendRequest(url, { method: 'get', params: params, headers: headers }, success, failure);
   };
 
   function put(url, data, headers, success, failure) {
@@ -178,6 +174,10 @@ module.exports = function init(exec, cookieHandler, urlUtil, helpers, globalConf
     return publicInterface.sendRequest(url, { method: 'patch', data: data, headers: headers }, success, failure);
   }
 
+  function get(url, params, headers, success, failure) {
+    return publicInterface.sendRequest(url, { method: 'get', params: params, headers: headers }, success, failure);
+  };
+
   function del(url, params, headers, success, failure) {
     return publicInterface.sendRequest(url, { method: 'delete', params: params, headers: headers }, success, failure);
   }
@@ -185,6 +185,10 @@ module.exports = function init(exec, cookieHandler, urlUtil, helpers, globalConf
   function head(url, params, headers, success, failure) {
     return publicInterface.sendRequest(url, { method: 'head', params: params, headers: headers }, success, failure);
   }
+
+  function options(url, params, headers, success, failure) {
+    return publicInterface.sendRequest(url, { method: 'options', params: params, headers: headers }, success, failure);
+  };
 
   function uploadFile(url, params, headers, filePath, name, success, failure) {
     return publicInterface.sendRequest(url, { method: 'upload', params: params, headers: headers, filePath: filePath, name: name }, success, failure);

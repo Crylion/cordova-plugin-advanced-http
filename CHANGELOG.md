@@ -1,5 +1,72 @@
 # Changelog
 
+## 3.0.1
+
+- Fixed #359: memory leakage leads to app crashes on Android
+- Fixed #355: responseType "json" not working with valid JSON response on browser (thanks millerg6711)
+
+## 3.0.0
+
+- Feature #158: support removing headers which were previously set via "setHeader"
+
+- Fixed #345: empty file names are not handled correctly (thanks ikosta)
+
+- :warning: **Breaking Change**: Dropped support for Android < 5.1
+- :warning: **Breaking Change**: Removed "disableRedirect", use "setFollowRedirect" instead
+- :warning: **Breaking Change**: Removed "setSSLCertMode", use "setServerTrustMode" instead
+
+## 2.5.1
+
+- Fixed #334: empty JSON response triggers error even though request is successful (thanks antikalk)
+- Fixed #248: clearCookies() does not work on iOS
+
+## 2.5.0
+
+- Feature #56: add support for X.509 client certificate based authentication
+
+## 2.4.1
+
+- Fixed #296: multipart requests are not serialized on browser platform
+- Fixed #301: data is not decoded correctly when responseType is "json" (thanks antikalk)
+- Fixed #300: FormData object containing null or undefined value is not serialized correctly
+
+## 2.4.0
+
+- Feature #291: add support for sending 'raw' requests (thanks to jachstet-sea and chuchuva)
+- Feature #155: add OPTIONS method
+- Feature #283: improve error message on timeout on browser platform
+
+## 2.3.1
+
+- Fixed #275: getAllCookies() is broken because of a typo (thanks ath0mas)
+
+## 2.3.0
+
+- Feature #101: Support "multipart/form-data" requests (thanks SDA SE Open Industry Solutions)
+
+#### Important information
+This feature depends on several Web APIs. See https://github.com/silkimen/cordova-plugin-advanced-http/wiki/Web-APIs-required-for-Multipart-requests for more info.
+
+## 2.2.0
+
+- Feature #239: add enumeration style object for error codes
+- Feature #253: add support for response type "json"
+- Feature #127: add multiple file upload (thanks SDA SE Open Industry Solutions and nilswitschel)
+
+## 2.1.1
+
+- Fixed #224: response type "arraybuffer" and "blob" not working on browser platform
+
+## 2.1.0
+
+- Feature #216: Support for response type `arraybuffer`
+- Feature #171: Support for response type `blob`
+- Feature #205: Add preference for configuring OKHTTP version (thanks RougeCiel)
+
+## 2.0.11
+
+- Fixed #221: headers not set on Android when request fails due to non-success status code
+
 ## 2.0.10
 
 - Fixed #218: headers are used as params on browser platform
