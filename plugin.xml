@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<plugin xmlns="http://www.phonegap.com/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android" id="cordova-plugin-advanced-http" version="3.0.1">
+<plugin xmlns="http://www.phonegap.com/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android" id="cordova-plugin-advanced-http" version="3.1.0">
   <name>Advanced HTTP plugin</name>
   <description>
         Cordova / Phonegap plugin for communicating with HTTP servers using SSL pinning
@@ -75,6 +75,7 @@
     <source-file src="src/android/com/silkimen/cordovahttp/CordovaHttpPlugin.java" target-dir="src/com/silkimen/cordovahttp"/>
     <source-file src="src/android/com/silkimen/cordovahttp/CordovaHttpResponse.java" target-dir="src/com/silkimen/cordovahttp"/>
     <source-file src="src/android/com/silkimen/cordovahttp/CordovaHttpUpload.java" target-dir="src/com/silkimen/cordovahttp"/>
+    <source-file src="src/android/com/silkimen/cordovahttp/CordovaObservableCallbackContext.java" target-dir="src/com/silkimen/cordovahttp"/>
     <source-file src="src/android/com/silkimen/cordovahttp/CordovaServerTrust.java" target-dir="src/com/silkimen/cordovahttp"/>
     <source-file src="src/android/com/silkimen/http/HttpBodyDecoder.java" target-dir="src/com/silkimen/http"/>
     <source-file src="src/android/com/silkimen/http/HttpRequest.java" target-dir="src/com/silkimen/http"/>

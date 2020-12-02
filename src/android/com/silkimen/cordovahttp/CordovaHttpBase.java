@@ -5,6 +5,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.IOException;
 
+import java.io.InterruptedIOException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 
@@ -17,8 +18,6 @@ import com.silkimen.http.HttpRequest;
 import com.silkimen.http.HttpRequest.HttpRequestException;
 import com.silkimen.http.JsonUtils;
 import com.silkimen.http.TLSConfiguration;
-
-import org.apache.cordova.CallbackContext;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -39,11 +38,11 @@ abstract class CordovaHttpBase implements Runnable {
   protected int timeout;
   protected boolean followRedirects;
   protected TLSConfiguration tlsConfiguration;
-  protected CallbackContext callbackContext;
+  protected CordovaObservableCallbackContext callbackContext;
 
   public CordovaHttpBase(String method, String url, String serializer, Object data, JSONObject headers, int timeout,
       boolean followRedirects, String responseType, TLSConfiguration tlsConfiguration,
-      CallbackContext callbackContext) {
+      CordovaObservableCallbackContext callbackContext) {
 
     this.method = method;
     this.url = url;
@@ -58,7 +57,7 @@ abstract class CordovaHttpBase implements Runnable {
   }
 
   public CordovaHttpBase(String method, String url, JSONObject headers, int timeout, boolean followRedirects,
-      String responseType, TLSConfiguration tlsConfiguration, CallbackContext callbackContext) {
+      String responseType, TLSConfiguration tlsConfiguration, CordovaObservableCallbackContext callbackContext) {
 
     this.method = method;
     this.url = url;
@@ -73,31 +72,39 @@ abstract class CordovaHttpBase implements Runnable {
   @Override
   public void run() {
     CordovaHttpResponse response = new CordovaHttpResponse();
+    HttpRequest request = null;
 
     try {
-      HttpRequest request = this.createRequest();
+      request = this.createRequest();
       this.prepareRequest(request);
       this.sendBody(request);
       this.processResponse(request, response);
       request.disconnect();
     } catch (HttpRequestException e) {
-      if (e.getCause() instanceof SSLException) {
+      Throwable cause = e.getCause();
+      String message = cause.getMessage();
+
+      if (cause instanceof SSLException) {
         response.setStatus(-2);
         response.setErrorMessage("TLS connection could not be established: " + e.getMessage());
         Log.w(TAG, "TLS connection could not be established", e);
-      } else if (e.getCause() instanceof UnknownHostException) {
+      } else if (cause instanceof UnknownHostException) {
         response.setStatus(-3);
         response.setErrorMessage("Host could not be resolved: " + e.getMessage());
         Log.w(TAG, "Host could not be resolved", e);
-      } else if (e.getCause() instanceof SocketTimeoutException) {
+      } else if (cause instanceof SocketTimeoutException) {
         response.setStatus(-4);
         response.setErrorMessage("Request timed out: " + e.getMessage());
         Log.w(TAG, "Request timed out", e);
+      } else if (cause instanceof InterruptedIOException && "thread interrupted".equals(message.toLowerCase())) {
+        this.setAborted(request, response);
       } else {
         response.setStatus(-1);
-        response.setErrorMessage("There was an error with the request: " + e.getCause().getMessage());
+        response.setErrorMessage("There was an error with the request: " + message);
         Log.w(TAG, "Generic request error", e);
       }
+    } catch (InterruptedException ie) {
+      this.setAborted(request, response);
     } catch (Exception e) {
       response.setStatus(-1);
       response.setErrorMessage(e.getMessage());
@@ -147,7 +154,7 @@ abstract class CordovaHttpBase implements Runnable {
     } else if ("urlencoded".equals(this.serializer)) {
       // intentionally left blank, because content type is set in HttpRequest.form()
     } else if ("multipart".equals(this.serializer)) {
-      request.contentType("multipart/form-data");
+      // intentionally left blank, because content type is set in HttpRequest.part()
     }
   }
 
@@ -201,5 +208,20 @@ abstract class CordovaHttpBase implements Runnable {
     } else {
       response.setErrorMessage(HttpBodyDecoder.decodeBody(outputStream.toByteArray(), request.charset()));
     }
+  }
+
+  protected void setAborted(HttpRequest request, CordovaHttpResponse response) {
+    response.setStatus(-8);
+    response.setErrorMessage("Request was aborted");
+
+    if (request != null) {
+      try {
+        request.disconnect();
+      } catch(Exception any){
+        Log.w(TAG, "Failed to close aborted request", any);
+      }
+    }
+
+    Log.i(TAG, "Request was aborted");
   }
 }
