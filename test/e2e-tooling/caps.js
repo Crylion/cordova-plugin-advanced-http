@@ -14,7 +14,7 @@ const configs = {
   },
   localIosEmulator: {
     platformName: 'iOS',
-    platformVersion: '13.2',
+    platformVersion: '14.3',
     automationName: 'XCUITest',
     deviceName: 'iPhone 8',
     autoWebview: true,
@@ -22,7 +22,7 @@ const configs = {
   },
   localAndroidEmulator: {
     platformName: 'Android',
-    platformVersion: '5',
+    platformVersion: '9',
     deviceName: 'Android Emulator',
     autoWebview: true,
     fullReset: true,
@@ -32,27 +32,27 @@ const configs = {
   // testing on SauceLabs
   saucelabsIosDevice: {
     browserName: '',
-    'appium-version': '1.9.1',
+    'appium-version': '1.20.1',
     platformName: 'iOS',
-    platformVersion: '10.3',
+    platformVersion: '14.3',
     deviceName: 'iPhone 6',
     autoWebview: true,
     app: 'sauce-storage:HttpDemo.app.zip'
   },
   saucelabsIosEmulator: {
     browserName: '',
-    'appium-version': '1.9.1',
+    'appium-version': '1.20.1',
     platformName: 'iOS',
-    platformVersion: '10.3',
+    platformVersion: '14.3',
     deviceName: 'iPhone Simulator',
     autoWebview: true,
     app: 'sauce-storage:HttpDemo.app.zip'
   },
   saucelabsAndroidEmulator: {
     browserName: '',
-    'appium-version': '1.9.1',
+    'appium-version': '1.20.1',
     platformName: 'Android',
-    platformVersion: '5.1',
+    platformVersion: '8.0',
     deviceName: 'Android Emulator',
     autoWebview: true,
     app: 'sauce-storage:HttpDemo.apk'
@@ -60,15 +60,15 @@ const configs = {
 
   // testing on BrowserStack
   browserstackIosDevice: {
-    device: 'iPhone 7',
-    os_version: '10',
+    device: 'iPhone 12',
+    os_version: '14',
     project: 'HTTP Test App',
     autoWebview: true,
     app: 'HttpTestAppAndroid'
   },
   browserstackAndroidDevice: {
     device: 'Google Nexus 6',
-    os_version: '5.0',
+    os_version: '6.0',
     project: 'HTTP Test App',
     autoWebview: true,
     app: 'HttpTestAppAndroid'

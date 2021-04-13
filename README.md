@@ -477,6 +477,28 @@ This plugin uses amazing cloud services to maintain quality. CI Builds and E2E t
 * [BrowserStack](https://www.browserstack.com/)
 * [Sauce Labs](https://saucelabs.com/)
 * [httpbin.org](https://httpbin.org/)
+* [go-httpbin](https://httpbingo.org/)
+
+### Local Testing
+
+First, install current package with `npm install` to fetch dev dependencies.
+
+Then, to execute Javascript tests:
+```shell
+npm run testjs
+```
+
+And, to execute E2E tests:
+- setup local Android sdk and emulators, or Xcode and simulators for iOS
+  - launch emulator or simulator
+- install [Appium](http://appium.io/) (see [Getting Started](https://github.com/appium/appium/blob/HEAD/docs/en/about-appium/getting-started.md))
+  - start `appium`
+- run
+  -  updating client and server certificates, building test app, and running e2e tests
+```shell
+npm run testandroid
+npm run testios
+```
 
 ## Contribute & Develop
 
